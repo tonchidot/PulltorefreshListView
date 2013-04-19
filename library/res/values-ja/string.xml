@@ -1,0 +1,7 @@
+<resources>
+
+    <string name="refresh_pull_down">プルダウンで更新</string>
+    <string name="refresh_release">手を離して更新</string>
+    <string name="loading">読み込み中…</string>
+
+</resources>
