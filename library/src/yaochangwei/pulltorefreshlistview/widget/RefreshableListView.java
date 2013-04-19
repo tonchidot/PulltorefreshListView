@@ -21,6 +21,7 @@ public class RefreshableListView extends ListView {
 	private static final int STATE_READY = 1;
 	private static final int STATE_PULL = 2;
 	private static final int STATE_UPDATING = 3;
+	private static final int STATE_UPDATING_FINISHING = 4;
 	private static final int INVALID_POINTER_ID = -1;
 
 	private static final int MIN_UPDATE_TIME = 500;
@@ -51,6 +52,10 @@ public class RefreshableListView extends ListView {
 	public void setPullToRefreshEnabled(boolean enabled) {
 		mPullToRefreshEnabled = enabled;
 		showHeader(mPullToRefreshEnabled);
+	}
+
+	public boolean isRefreshing() {
+		return (mState == STATE_UPDATING || mState == STATE_UPDATING_FINISHING);
 	}
 
 	@Override
@@ -106,7 +111,7 @@ public class RefreshableListView extends ListView {
 	 * Update immediately.
 	 */
 	public void startUpdateImmediate() {
-		if (mState == STATE_UPDATING) {
+		if (mState == STATE_UPDATING || mState == STATE_UPDATING_FINISHING) {
 			return;
 		}
 		setSelectionFromTop(0, 0);
@@ -135,14 +140,20 @@ public class RefreshableListView extends ListView {
 
 	private void update() {
 		if (mListHeaderView.isUpdateNeeded()) {
-			if (mOnUpdateTask != null) {
-				mOnUpdateTask.onUpdateStart();
+			mState = STATE_UPDATING;
+			final OnUpdateTask task = mOnUpdateTask;
+			if (task != null) {
+				task.onUpdateStart();
+			}
+			if (task.useBackgroundTask()) {
+				// task should call endRefresh() when the task ends.
+				return;
 			}
 			mListHeaderView.startUpdate(new Runnable() {
 				public void run() {
 					final long b = System.currentTimeMillis();
-					if (mOnUpdateTask != null) {
-						mOnUpdateTask.updateBackground();
+					if (task != null && task.useBackgroundTask()) {
+						task.updateBackground();
 					}
 					final long delta = MIN_UPDATE_TIME
 							- (System.currentTimeMillis() - b);
@@ -153,20 +164,29 @@ public class RefreshableListView extends ListView {
 							e.printStackTrace();
 						}
 					}
-					post(new Runnable() {
-						public void run() {
-							mListHeaderView.close(STATE_NORMAL);
-							if (mOnUpdateTask != null) {
-								mOnUpdateTask.updateUI();
-							}
-						}
-					});
+					if (task.useBackgroundTask() && mState == STATE_UPDATING)
+						endRefresh();
 				}
 			});
-			mState = STATE_UPDATING;
 		} else {
 			mListHeaderView.close(STATE_NORMAL);
 		}
+	}
+
+	public void endRefresh() {
+		if (mState != STATE_UPDATING) {
+			return;
+		}
+		mState = STATE_UPDATING_FINISHING;
+		final OnUpdateTask task = mOnUpdateTask;
+		post(new Runnable() {
+			public void run() {
+				mListHeaderView.close(STATE_NORMAL);
+				if (task != null) {
+					task.onUpdateFinished();
+				}
+			}
+		});
 	}
 
 	@Override
@@ -174,7 +194,7 @@ public class RefreshableListView extends ListView {
 		if (!mPullToRefreshEnabled) {
 			return super.dispatchTouchEvent(ev);
 		}
-		if (mState == STATE_UPDATING) {
+		if (mState == STATE_UPDATING || mState == STATE_UPDATING_FINISHING) {
 			return super.dispatchTouchEvent(ev);
 		}
 		final int action = ev.getAction() & MotionEventCompat.ACTION_MASK;
@@ -267,7 +287,7 @@ public class RefreshableListView extends ListView {
 		if (count == 0) {
 			return true;
 		}
-		final int firstVisiblePosition = this.getFirstVisiblePosition();
+		final int firstVisiblePosition = super.getFirstVisiblePosition();
 		final View firstChildView = getChildAt(0);
 		boolean needs = firstChildView.getTop() == 0
 				&& (firstVisiblePosition == 0);
@@ -314,22 +334,44 @@ public class RefreshableListView extends ListView {
 	public static interface OnUpdateTask {
 
 		/**
-		 * will called before the update task begin. Will Run in the UI thread.
+		 * Will be called before the update task begin. Will run in the UI thread.
 		 */
 		public void onUpdateStart();
+		
+		/**
+		 * @return true if using background task. in this case, please implement updateBackground().
+		 * false if the refresh should extend until endRefresh() is called.
+		 */
+		public boolean useBackgroundTask();
 
 		/**
-		 * Will called doing the background task. Will Run in the background
+		 * Will be called to do the background task. Will run in the background
 		 * thread.
 		 */
 		public void updateBackground();
 
 		/**
-		 * Will called when doing the background task. Will Run in the UI
+		 * Will be called after finishing the background task. Will run in the UI
 		 * thread.
 		 */
-		public void updateUI();
+		public void onUpdateFinished();
 
 	}
-
+	
+	abstract public static class OnUpdateTaskBackground implements OnUpdateTask {
+		@Override
+		public boolean useBackgroundTask() {
+			return true;
+		}
+	}
+	abstract public static class OnUpdateTaskAsync implements OnUpdateTask {
+		@Override
+		public boolean useBackgroundTask() {
+			return false;
+		}
+		@Override
+		public void updateBackground() {}
+		@Override
+		public void onUpdateFinished() {}
+	}
 }
