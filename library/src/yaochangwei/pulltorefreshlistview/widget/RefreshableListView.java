@@ -12,6 +12,7 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
+import android.widget.ListAdapter;
 import android.widget.ListView;
 
 public class RefreshableListView extends ListView {
@@ -24,6 +25,8 @@ public class RefreshableListView extends ListView {
 
 	private static final int MIN_UPDATE_TIME = 500;
 
+	private boolean mPullToRefreshEnabled = true;
+	private boolean isHeaderAdded;
 	protected ListHeaderView mListHeaderView;
 
 	private int mActivePointerId;
@@ -43,6 +46,31 @@ public class RefreshableListView extends ListView {
 	public RefreshableListView(Context context, AttributeSet attrs, int defStyle) {
 		super(context, attrs, defStyle);
 		initialize();
+	}
+
+	public void setPullToRefreshEnabled(boolean enabled) {
+		mPullToRefreshEnabled = enabled;
+		showHeader(mPullToRefreshEnabled);
+	}
+
+	@Override
+	public void setAdapter(ListAdapter adapter) {
+		showHeader(true);
+		super.setAdapter(adapter);
+		if (!mPullToRefreshEnabled) {
+			showHeader(false);
+		}
+	}
+
+	private void showHeader(boolean show) {
+		if(show != isHeaderAdded) {
+			isHeaderAdded = show;
+			if (show) {
+				addHeaderView(mListHeaderView, null, false);
+			} else {
+				removeHeaderView(mListHeaderView);
+			}
+		}
 	}
 
 	/***
@@ -99,7 +127,7 @@ public class RefreshableListView extends ListView {
 	private void initialize() {
 		final Context context = getContext();
 		mListHeaderView = new ListHeaderView(context, this);
-		addHeaderView(mListHeaderView, null, false);
+		showHeader(true);
 		mState = STATE_NORMAL;
 		final ViewConfiguration configuration = ViewConfiguration.get(context);
 		mTouchSlop = configuration.getScaledTouchSlop();
@@ -143,6 +171,9 @@ public class RefreshableListView extends ListView {
 
 	@Override
 	public boolean dispatchTouchEvent(MotionEvent ev) {
+		if (!mPullToRefreshEnabled) {
+			return super.dispatchTouchEvent(ev);
+		}
 		if (mState == STATE_UPDATING) {
 			return super.dispatchTouchEvent(ev);
 		}
