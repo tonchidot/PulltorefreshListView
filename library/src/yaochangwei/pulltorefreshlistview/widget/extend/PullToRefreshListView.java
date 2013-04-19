@@ -26,7 +26,6 @@ public class PullToRefreshListView extends RefreshableListView {
 		super(context, attrs);
 
 		setContentView(R.layout.pull_to_refresh);
-		mListHeaderView.setBackgroundColor(Color.parseColor("#e0e0e0"));
 		setOnHeaderViewChangedListener(new OnHeaderViewChangedListener() {
 
 			@Override
