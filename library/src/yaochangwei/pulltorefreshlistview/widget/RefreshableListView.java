@@ -69,11 +69,12 @@ public class RefreshableListView extends ListView {
 
 	private void showHeader(boolean show) {
 		if(show != isHeaderAdded) {
-			isHeaderAdded = show;
 			if (show) {
 				addHeaderView(mListHeaderView, null, false);
-			} else {
+				isHeaderAdded = show;
+			} else if (getAdapter() != null) { // this check is needed, because of android bug : http://stackoverflow.com/questions/11126422/crash-on-listview-removefooterviewview
 				removeHeaderView(mListHeaderView);
+				isHeaderAdded = show;
 			}
 		}
 	}
