@@ -221,7 +221,7 @@ public class RefreshableListView extends ListView {
 				final float y = MotionEventCompat.getY(ev, activePointerIndex);
 				final int deltaY = (int) (y - mLastY);
 				mLastY = y;
-				if (deltaY <= 0 || Math.abs(y) < mTouchSlop) {
+				if (deltaY <= 0 || Math.abs(deltaY) < mTouchSlop) {
 					mState = STATE_NORMAL;
 				} else {
 					mState = STATE_PULL;
