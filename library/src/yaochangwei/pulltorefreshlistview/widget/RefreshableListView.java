@@ -28,6 +28,7 @@ public class RefreshableListView extends ListView {
 
 	private boolean mPullToRefreshEnabled = true;
 	private boolean isHeaderAdded;
+	private boolean isFirstSetAdapter = true;
 	protected ListHeaderView mListHeaderView;
 
 	private int mActivePointerId;
@@ -60,10 +61,17 @@ public class RefreshableListView extends ListView {
 
 	@Override
 	public void setAdapter(ListAdapter adapter) {
-		showHeader(true);
-		super.setAdapter(adapter);
-		if (!mPullToRefreshEnabled) {
-			showHeader(false);
+		if (isFirstSetAdapter) {
+			// showHeader can only be used on the first time of setAdapter (especially on Android 2.3)
+			isFirstSetAdapter = false;
+			showHeader(true);
+			super.setAdapter(adapter);
+			if (!mPullToRefreshEnabled) {
+				showHeader(false);
+			}
+		}
+		else {
+			super.setAdapter(adapter);
 		}
 	}
 
